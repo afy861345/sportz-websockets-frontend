@@ -1,11 +1,13 @@
 import React, { useState } from 'react'
 import { StatusIndicator } from './components/StatusIndicator'
+import { useWebSocket } from './hook/useWebSocket';
 
 const App = () => {
   const [wsError, setWsError] = useState("Ali")
   const [isLoading, setIsLoading] = useState(false);
   const [matches, setMatches] = useState([]);
   const [error, setError] = useState("");
+  const { status } = useWebSocket();
   return (
     <div className="min-h-screen p-4 md:p-8 font-sans">
       <div className="max-w-7xl mx-auto space-y-8">
@@ -18,7 +20,7 @@ const App = () => {
             <p className="text-sm font-medium opacity-80">Real-time match data demo</p>
           </div>
           <div className="flex flex-col items-end gap-2">
-            <StatusIndicator status="reconnecting" />
+            <StatusIndicator status={status} />
             {wsError && (
               <span className="text-xs font-mono bg-red-100 text-red-700 border border-red-200 px-2 py-1 rounded">
                 WS: {wsError}
