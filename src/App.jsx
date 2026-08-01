@@ -1,13 +1,10 @@
 import React, { useState } from 'react'
 import { StatusIndicator } from './components/StatusIndicator'
-import { useWebSocket } from './hook/useWebSocket';
-
+import { useMatchData } from './hook/useMatchData'
 const App = () => {
+  const { matches, isLoading, status } = useMatchData();
   const [wsError, setWsError] = useState("Ali")
-  const [isLoading, setIsLoading] = useState(false);
-  const [matches, setMatches] = useState([]);
   const [error, setError] = useState("");
-  const { status } = useWebSocket();
   return (
     <div className="min-h-screen p-4 md:p-8 font-sans">
       <div className="max-w-7xl mx-auto space-y-8">
