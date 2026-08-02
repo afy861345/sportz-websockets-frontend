@@ -100,6 +100,26 @@ export const useMatchData = () => {
                     return match;
                 });
             });
+            if (knownMatchIdsRef.current.size > 0) {
+                let newCount = 0;
+                nextMatchIds.forEach((matchId) => {
+                    if (!knownMatchIdsRef.current.has(matchId)) {
+                        newCount += 1;
+                    }
+                });
+                if (newCount > 0) {
+                    setNewMatchesCount((prev) => prev + newCount);
+                    if (newMatchesTimeoutRef.current) {
+                        clearTimeout(newMatchesTimeoutRef.current);
+                    }
+                    newMatchesTimeoutRef.current = setTimeout(() => {
+                        setNewMatchesCount(0);
+                        newMatchesTimeoutRef.current = null;
+                    }, 5000);
+                }
+            }
+
+
             knownMatchIdsRef.current = nextMatchIds;
             nextMatches.forEach((match) => {
                 const matchId = String(match.id);
@@ -205,5 +225,5 @@ export const useMatchData = () => {
         },
         [activeMatchId, unsubscribeMatch]
     );
-    return { matches, isLoading, status, error, commentary, isCommentaryLoading, wsError, activeMatchId, newMatchesCount, dismissNewMatches, watchMatch, unwatchMatch};
+    return { matches, isLoading, status, error, commentary, isCommentaryLoading, wsError, activeMatchId, newMatchesCount, dismissNewMatches, watchMatch, unwatchMatch };
 }
