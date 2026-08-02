@@ -23,7 +23,6 @@ export const useWebSocket = (
   // Core connect function
   const initConnection = useCallback(() => {
     
-
     setStatus(reconnectAttempts.current > 0 ? 'reconnecting' : 'connecting');
     isIntentionalClose.current = false;
 

@@ -1,11 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
 
+
 export const MatchCard = ({ match, isActive, onWatch, onUnwatch }) => {
+  // Handle case-insensitive status check from API
   const statusLower = match.status.toLowerCase();
-  const [homePulse, setHomePulse] = useState(true);
-  const [awayPulse, setAwayPulse] = useState(false);
   const isLive = statusLower === 'live';
-    const actionLabel = (() => {
+  const [homePulse, setHomePulse] = useState(false);
+  const [awayPulse, setAwayPulse] = useState(false);
+  const prevScoreRef = useRef({ home: match.homeScore, away: match.awayScore });
+  const pulseTimeoutRef = useRef({});
+  
+  const actionLabel = (() => {
     if (isLive) {
       return isActive ? 'Watching Live' : 'Watch Live';
     }
@@ -14,8 +19,47 @@ export const MatchCard = ({ match, isActive, onWatch, onUnwatch }) => {
     }
     return isActive ? 'Viewing Match' : 'View Match';
   })();
+
+  useEffect(() => {
+    const prevScore = prevScoreRef.current;
+    const homeChanged = prevScore.home !== match.homeScore;
+    const awayChanged = prevScore.away !== match.awayScore;
+
+    if (homeChanged) {
+      setHomePulse(true);
+      if (pulseTimeoutRef.current.home) {
+        clearTimeout(pulseTimeoutRef.current.home);
+      }
+      pulseTimeoutRef.current.home = setTimeout(() => {
+        setHomePulse(false);
+      }, 900);
+    }
+
+    if (awayChanged) {
+      setAwayPulse(true);
+      if (pulseTimeoutRef.current.away) {
+        clearTimeout(pulseTimeoutRef.current.away);
+      }
+      pulseTimeoutRef.current.away = setTimeout(() => {
+        setAwayPulse(false);
+      }, 900);
+    }
+
+    prevScoreRef.current = { home: match.homeScore, away: match.awayScore };
+
+    return () => {
+      if (pulseTimeoutRef.current.home) {
+        clearTimeout(pulseTimeoutRef.current.home);
+      }
+      if (pulseTimeoutRef.current.away) {
+        clearTimeout(pulseTimeoutRef.current.away);
+      }
+    };
+  }, [match.homeScore, match.awayScore]);
+  
   // Format status for display (Capitalize first letter)
   const displayStatus = match.status.charAt(0).toUpperCase() + match.status.slice(1).toLowerCase();
+
   return (
     <div className={`
       relative p-5 rounded-2xl border-2 border-black bg-white transition-all duration-200
@@ -38,7 +82,8 @@ export const MatchCard = ({ match, isActive, onWatch, onUnwatch }) => {
           </span>
         </div>
       </div>
-        {/* Teams & Score */}
+
+      {/* Teams & Score */}
       <div className="flex flex-col gap-3 mb-6">
         <div className="flex justify-between items-center">
           <span className="font-bold text-lg text-brand-dark line-clamp-1">{match.homeTeam}</span>
@@ -67,10 +112,10 @@ export const MatchCard = ({ match, isActive, onWatch, onUnwatch }) => {
       {/* Footer: Action */}
       <div className="flex items-center justify-between mt-auto pt-4 border-t-2 border-gray-100 border-dashed">
         <span className="text-xs text-gray-500 font-medium">
-          {new Date(match.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          {new Date(match.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
         </span>
         <div className="flex items-center gap-2">
-           <button
+          <button
             onClick={() => onWatch(match.id)}
             disabled={isActive}
             className={`
