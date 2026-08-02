@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { StatusIndicator } from './components/StatusIndicator'
 import { useMatchData } from './hook/useMatchData'
+import { MatchCard } from './components/MatchCard';
 const App = () => {
   const { matches, isLoading, status } = useMatchData();
   const [wsError, setWsError] = useState("Ali")
@@ -63,8 +64,19 @@ const App = () => {
                 <p className="font-bold text-lg">No matches found</p>
               </div>
             )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {matches.map((match) => (
+                <MatchCard
+                  key={match.id}
+                  match={match}
+                  // eslint-disable-next-line eqeqeq
+                  isActive={true} // Placeholder for active match logic
+                  isLive={true} // Placeholder for live match logic
+                />
+              ))}
+            </div>
           </main>
-            {/* Right Column: Live Feed (Sticky on Desktop) */}
+          {/* Right Column: Live Feed (Sticky on Desktop) */}
           <aside className="lg:col-span-1 h-[500px] lg:h-[calc(100vh-140px)] lg:sticky lg:top-8 bg-amber-200">
           </aside>
         </div>
