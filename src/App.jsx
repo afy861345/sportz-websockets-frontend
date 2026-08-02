@@ -1,14 +1,43 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { StatusIndicator } from './components/StatusIndicator'
 import { useMatchData } from './hook/useMatchData'
 import { MatchCard } from './components/MatchCard';
 const App = () => {
-  const { matches, isLoading, status } = useMatchData();
-  const [wsError, setWsError] = useState("Ali")
-  const [error, setError] = useState("");
+  const pageSize = 6;
+  const [currentPage, setCurrentPage] = useState(1);
+  const {
+    matches,
+    isLoading,
+    error,
+    commentary,
+    isCommentaryLoading,
+    wsError,
+    status,
+    activeMatchId,
+    newMatchesCount,
+    dismissNewMatches,
+    watchMatch,
+    unwatchMatch,
+    reloadMatches,
+  } = useMatchData();
+
+  const totalPages = Math.max(1, Math.ceil(matches.length / pageSize));
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  const pagedMatches = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize;
+    return matches.slice(startIndex, startIndex + pageSize);
+  }, [matches, currentPage, pageSize]);
+
   return (
     <div className="min-h-screen p-4 md:p-8 font-sans">
       <div className="max-w-7xl mx-auto space-y-8">
+
         {/* Header Section */}
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-brand-yellow border-2 border-black rounded-2xl p-6 shadow-hard">
           <div>
@@ -26,8 +55,10 @@ const App = () => {
             )}
           </div>
         </header>
+
         {/* Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
           {/* Left Column: Match List */}
           <main className="lg:col-span-2 space-y-6">
             <div className="flex items-center justify-between">
@@ -36,12 +67,27 @@ const App = () => {
                 API: {isLoading ? '...' : matches.length}
               </span>
             </div>
+            {newMatchesCount > 0 && (
+              <div className="flex items-center justify-between gap-3 bg-brand-yellow border-2 border-black rounded-xl px-4 py-3 shadow-hard-sm">
+                <span className="text-sm font-bold">
+                  {newMatchesCount} new match{newMatchesCount > 1 ? 'es' : ''} added
+                </span>
+                <button
+                  onClick={dismissNewMatches}
+                  className="px-3 py-1 rounded-full text-xs font-bold border-2 border-black bg-white hover:bg-gray-50 transition-all"
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
+
             {isLoading && (
               <div className="p-12 text-center border-2 border-dashed border-gray-300 rounded-2xl">
                 <div className="animate-spin w-8 h-8 border-4 border-brand-yellow border-t-black rounded-full mx-auto mb-4"></div>
                 <p className="font-medium text-gray-500">Loading matches...</p>
               </div>
             )}
+
             {error && (
               <div className="bg-red-50 border-2 border-red-500 text-red-900 p-6 rounded-xl text-center shadow-sm">
                 <div className="flex justify-center mb-3 text-red-500">
@@ -53,28 +99,61 @@ const App = () => {
                   The application could not reach the API. Please ensure the API server is online and accessible from your network.
                 </p>
                 <button
+                  onClick={reloadMatches}
                   className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold text-sm transition-all shadow-md active:translate-y-0.5"
                 >
                   Retry Connection
                 </button>
               </div>
             )}
+
             {!isLoading && !error && matches.length === 0 && (
               <div className="p-12 text-center border-2 border-black rounded-2xl bg-gray-50">
                 <p className="font-bold text-lg">No matches found</p>
               </div>
             )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {matches.map((match) => (
+              {pagedMatches.map((match) => (
                 <MatchCard
                   key={match.id}
                   match={match}
                   // eslint-disable-next-line eqeqeq
-                  isActive={true} // Placeholder for active match logic
-                  isLive={true} // Placeholder for live match logic
+                  isActive={activeMatchId == match.id}
+                  onWatch={watchMatch}
+                  onUnwatch={unwatchMatch}
                 />
               ))}
             </div>
+            {!isLoading && !error && matches.length > pageSize && (
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                <span className="text-xs font-medium text-gray-500">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    className={`
+                      px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-black transition-all
+                      ${currentPage === 1 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white hover:bg-gray-50'}
+                    `}
+                  >
+                    Prev
+                  </button>
+                  <button
+                    onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                    className={`
+                      px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-black transition-all
+                      ${currentPage === totalPages ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white hover:bg-gray-50'}
+                    `}
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
           </main>
           {/* Right Column: Live Feed (Sticky on Desktop) */}
           <aside className="lg:col-span-1 h-[500px] lg:h-[calc(100vh-140px)] lg:sticky lg:top-8 bg-amber-200">

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, useRef } from "react";
 import { useWebSocket } from "./useWebSocket";
-import { fetchMatches } from "../services/api";
+import { fetchMatches, fetchMatchCommentary } from "../services/api";
 export const useMatchData = () => {
     const [matches, setMatches] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -8,11 +8,13 @@ export const useMatchData = () => {
     const [commentary, setCommentary] = useState([]);
     const [isCommentaryLoading, setIsCommentaryLoading] = useState(false);
     const [wsError, setWsError] = useState(null);
-
+    const [activeMatchId, setActiveMatchId] = useState(null);
+    const [newMatchesCount, setNewMatchesCount] = useState(0);
     const latestMatchIdRef = useRef(null);
     const subscribedMatchIdsRef = useRef(new Set());
     const hasLoadedRef = useRef(false);
-
+    const knownMatchIdsRef = useRef(new Set());
+    const newMatchesTimeoutRef = useRef(null);
     const handleWSMessage = useCallback((msg) => {
         switch (msg.type) {
             case "score_update":
@@ -76,16 +78,50 @@ export const useMatchData = () => {
             setIsLoading(true);
         }
         setError(null);
-
         try {
             const data = await fetchMatches(100);
             const nextMatches = data.data || [];
             const nextMatchIds = new Set(nextMatches.map((match) => String(match.id)));
-            setMatches(nextMatches);
-        } catch (e) {
-            console.error("Error fetching matches:", e);
+            setMatches((prevMatches) => {
+                const prevById = new Map(
+                    prevMatches.map((match) => [String(match.id), match])
+                );
+
+                return nextMatches.map((match) => {
+                    const matchId = String(match.id);
+                    const prev = prevById.get(matchId);
+                    if (prev && subscribedMatchIdsRef.current.has(matchId)) {
+                        return {
+                            ...match,
+                            homeScore: prev.homeScore,
+                            awayScore: prev.awayScore,
+                        };
+                    }
+                    return match;
+                });
+            });
+            knownMatchIdsRef.current = nextMatchIds;
+            nextMatches.forEach((match) => {
+                const matchId = String(match.id);
+                if (subscribedMatchIdsRef.current.has(matchId) && match.status.toLowerCase() === "finished") {
+                    subscribedMatchIdsRef.current.delete(matchId);
+                    unsubscribeMatch(match.id);
+                    if (latestMatchIdRef.current == match.id) {
+                        setActiveMatchId(null);
+                        latestMatchIdRef.current = null;
+                        setCommentary([]);
+                        setIsCommentaryLoading(false);
+                    }
+                }
+            });
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : "Failed to load matches";
+            setError(msg);
         } finally {
-            setIsLoading(false);
+            if (!hasLoadedRef.current) {
+                setIsLoading(false);
+                hasLoadedRef.current = true;
+            }
         }
     }, []);
 
@@ -101,5 +137,73 @@ export const useMatchData = () => {
     useEffect(() => {
         connectGlobal();
     }, [connectGlobal]);
-    return { matches, isLoading, status };
+    useEffect(() => {
+        latestMatchIdRef.current = activeMatchId;
+    }, [activeMatchId]);
+
+    useEffect(() => {
+        return () => {
+            if (newMatchesTimeoutRef.current) {
+                clearTimeout(newMatchesTimeoutRef.current);
+            }
+        };
+    }, []);
+    const dismissNewMatches = useCallback(() => {
+        if (newMatchesTimeoutRef.current) {
+            clearTimeout(newMatchesTimeoutRef.current);
+            newMatchesTimeoutRef.current = null;
+        }
+        setNewMatchesCount(0);
+    }, []);
+
+    const watchMatch = useCallback(
+        (id) => {
+            setCommentary([]);
+            setIsCommentaryLoading(true);
+            setWsError(null);
+            latestMatchIdRef.current = id;
+            if (activeMatchId != null && activeMatchId != id) {
+                const previousId = String(activeMatchId);
+                subscribedMatchIdsRef.current.delete(previousId);
+                unsubscribeMatch(activeMatchId);
+            }
+            setActiveMatchId(id);
+            const matchId = String(id);
+            subscribedMatchIdsRef.current.add(matchId);
+            subscribeMatch(id);
+            fetchMatchCommentary(id)
+                .then((data) => {
+                    if (latestMatchIdRef.current == id) {
+                        setCommentary(data.data || []);
+                    }
+                })
+                .catch(() => {
+                    if (latestMatchIdRef.current == id) {
+                        setCommentary([]);
+                    }
+                })
+                .finally(() => {
+                    if (latestMatchIdRef.current == id) {
+                        setIsCommentaryLoading(false);
+                    }
+                });
+        },
+        [activeMatchId, subscribeMatch, unsubscribeMatch]
+    );
+
+    const unwatchMatch = useCallback(
+        (id) => {
+            unsubscribeMatch(id);
+            const matchId = String(id);
+            subscribedMatchIdsRef.current.delete(matchId);
+            if (activeMatchId == id) {
+                setActiveMatchId(null);
+                latestMatchIdRef.current = null;
+                setCommentary([]);
+                setIsCommentaryLoading(false);
+            }
+        },
+        [activeMatchId, unsubscribeMatch]
+    );
+    return { matches, isLoading, status, error, commentary, isCommentaryLoading, wsError, activeMatchId, newMatchesCount, dismissNewMatches, watchMatch, unwatchMatch};
 }
