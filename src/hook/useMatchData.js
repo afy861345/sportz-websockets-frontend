@@ -225,5 +225,5 @@ export const useMatchData = () => {
         },
         [activeMatchId, unsubscribeMatch]
     );
-    return { matches, isLoading, status, error, commentary, isCommentaryLoading, wsError, activeMatchId, newMatchesCount, dismissNewMatches, watchMatch, unwatchMatch };
+    return { matches, isLoading, status, error, commentary, isCommentaryLoading, wsError, activeMatchId,reloadingMatches:loadMatches, newMatchesCount, dismissNewMatches, watchMatch, unwatchMatch };
 }
